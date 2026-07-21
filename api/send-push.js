@@ -9,20 +9,32 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: '⚠️ الرجاء كتابة نص الإشعار أولاً!' });
     }
 
-    // إعدادات OneSignal
-    const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || 'b9932e55-c55b-465d-b021-39a034f978e0';
-    const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || 'os_v2_app_xgjs4voflndf3mbbhgqdj6ly5b3iucz7uczustvox2hrsnmfyzljor7jo4cgpfsxwwklng7bi4cvh7kkbgrfexpqnzi2ntiymy6vxmi';
+    // جلب المفاتيح من Vercel
+    const appId = process.env.ONESIGNAL_APP_ID;
+    const apiKey = process.env.ONESIGNAL_REST_API_KEY;
+
+    // فحص تشخيصي: هل المفاتيح متوفرة داخل Vercel؟
+    if (!appId || !apiKey) {
+        return res.status(500).json({
+            success: false,
+            error: 'لم يتم قراءة المفاتيح من Vercel!',
+            details: {
+                appId_exists: !!appId,
+                apiKey_exists: !!apiKey,
+                tip: 'تأكد من إضافة المتغيرات في Vercel ثم عمل Redeploy للمشروع.'
+            }
+        });
+    }
 
     try {
         const response = await fetch('https://onesignal.com/api/v1/notifications', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json; charset=utf-8',
-                // ترويسة التوثيق الصحيحة لمفاتيح v2 في OneSignal
-                'Authorization': `Key ${ONESIGNAL_REST_API_KEY}`
+                'Authorization': `Key ${apiKey.trim()}`
             },
             body: JSON.stringify({
-                app_id: ONESIGNAL_APP_ID,
+                app_id: appId.trim(),
                 included_segments: ['All'],
                 contents: {
                     ar: push_text,
