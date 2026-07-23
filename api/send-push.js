@@ -17,16 +17,15 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'طريقة الطلب غير مسموح بها' });
     }
 
-    // 📥 3. قراءة البيانات القادمة من الطلب
+    // قراءة النص ومعرّف المرسل
     const push_text = req.body.push_text || req.body.message;
-    const sender = req.body.sender || req.body.title || 'مستخدم';
-    const title = req.body.title || `رسالة جديدة من ${sender}`;
+    // إذا لم يتم التمرير الصريح لـ sender، سيستخدم العنوان كمعرف للمجموعة تلقائياً
+    const sender = req.body.sender || req.body.title || 'chat_user';
 
     if (!push_text || push_text.trim() === '') {
         return res.status(400).json({ error: '⚠️ الرجاء كتابة نص الإشعار أولاً!' });
     }
 
-    // 🔑 4. التحقق من وجود مفاتيح OneSignal في متغيرات البيئة
     const appId = (process.env.ONESIGNAL_APP_ID || '').trim();
     const apiKey = (process.env.ONESIGNAL_REST_API_KEY || '').trim();
 
@@ -38,7 +37,6 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 🚀 5. إرسال الإشعار إلى OneSignal API
         const response = await fetch('https://api.onesignal.com/notifications', {
             method: 'POST',
             headers: {
@@ -48,21 +46,15 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 app_id: appId,
                 included_segments: ['All'],
-                contents: { 
-                    ar: push_text, 
-                    en: push_text 
-                },
+                contents: { ar: push_text, en: push_text },
                 headings: { 
-                    ar: title, 
-                    en: title 
+                    ar: req.body.title || "إشعار جديد 🚀", 
+                    en: req.body.title || "New Notification 🚀" 
                 },
 
-                // 🌟 تجميع إشعارات نفس المرسل في مجموعة واحدة دون حذف الرسائل القديمة
-                android_group: `group_${sender}`,
-                android_group_message: { 
-                    ar: `$[notif_count] رسائل جديدة من ${sender}`,
-                    en: `$[notif_count] new messages from ${sender}`
-                }
+                // 🌟 التعديل الأساسي لدمج وتجميع الفقاعات لنفس المرسل:
+                collapse_id: sender,            // يستبدل أو يحدث الإشعار السابق في أندرويد و iOS
+                android_group: `group_${sender}` // يجمع الرسائل المتعددة من نفس المرسل تحت حزمة واحدة
             })
         });
 
@@ -71,7 +63,7 @@ export default async function handler(req, res) {
         if (response.ok && !data.errors) {
             return res.status(200).json({
                 success: true,
-                message: '✅ تم إرسال الإشعار بنجاح!',
+                message: '✅ تم إرسال الإشعار بنجاح! راجع هاتفك الآن.',
                 data: data
             });
         } else {
