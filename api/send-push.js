@@ -17,8 +17,10 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'طريقة الطلب غير مسموح بها' });
     }
 
-    // قراءة النص (سواء تم إرساله بـ push_text أو message)
+    // قراءة النص ومعرّف المرسل
     const push_text = req.body.push_text || req.body.message;
+    // إذا لم يتم التمرير الصريح لـ sender، سيستخدم العنوان كمعرف للمجموعة تلقائياً
+    const sender = req.body.sender || req.body.title || 'chat_user';
 
     if (!push_text || push_text.trim() === '') {
         return res.status(400).json({ error: '⚠️ الرجاء كتابة نص الإشعار أولاً!' });
@@ -48,7 +50,11 @@ export default async function handler(req, res) {
                 headings: { 
                     ar: req.body.title || "إشعار جديد 🚀", 
                     en: req.body.title || "New Notification 🚀" 
-                }
+                },
+
+                // 🌟 التعديل الأساسي لدمج وتجميع الفقاعات لنفس المرسل:
+                collapse_id: sender,            // يستبدل أو يحدث الإشعار السابق في أندرويد و iOS
+                android_group: `group_${sender}` // يجمع الرسائل المتعددة من نفس المرسل تحت حزمة واحدة
             })
         });
 
