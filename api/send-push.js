@@ -21,6 +21,8 @@ export default async function handler(req, res) {
     const push_text = req.body.push_text || req.body.message;
     const sender = req.body.sender || req.body.title || 'مستخدم';
     const title = req.body.title || `رسالة جديدة من ${sender}`;
+    const target_user = req.body.target_user || req.body.receiver;
+    const target_role = req.body.target_role || req.body.role;
 
     if (!push_text || push_text.trim() === '') {
         return res.status(400).json({ error: '⚠️ الرجاء كتابة نص الإشعار أولاً!' });
@@ -38,32 +40,50 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 🚀 5. إرسال الإشعار إلى OneSignal API
+        // 🎯 5. بناء حمولة الإشعار لـ OneSignal
+        const notificationPayload = {
+            app_id: appId,
+            contents: { 
+                ar: push_text, 
+                en: push_text 
+            },
+            headings: { 
+                ar: title, 
+                en: title 
+            },
+
+            // 🌟 تجميع إشعارات نفس المرسل في مجموعة واحدة دون حذف الرسائل القديمة
+            android_group: `group_${sender}`,
+            android_group_message: { 
+                ar: `$[notif_count] رسائل جديدة من ${sender}`,
+                en: `$[notif_count] new messages from ${sender}`
+            }
+        };
+
+        // 🎯 تحديد الجمهور المستهدف بحسب البيانات المستقبلة
+        if (target_user && target_user.trim() !== '') {
+            // استهداف مستخدم محدد برقم/اسم المستخدم الخاص به
+            notificationPayload.filters = [
+                { field: 'tag', key: 'username', relation: '=', value: target_user.trim() }
+            ];
+        } else if (target_role && target_role.trim() !== '') {
+            // استهداف رتبة معينة (مثل admin أو member)
+            notificationPayload.filters = [
+                { field: 'tag', key: 'role', relation: '=', value: target_role.trim() }
+            ];
+        } else {
+            // إرسال عام لجميع المستخدمين في حال عدم تحديد مستهدف
+            notificationPayload.included_segments = ['All'];
+        }
+
+        // 🚀 6. إرسال الإشعار إلى OneSignal API
         const response = await fetch('https://api.onesignal.com/notifications', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json; charset=utf-8',
                 'Authorization': `Key ${apiKey}`
             },
-            body: JSON.stringify({
-                app_id: appId,
-                included_segments: ['All'],
-                contents: { 
-                    ar: push_text, 
-                    en: push_text 
-                },
-                headings: { 
-                    ar: title, 
-                    en: title 
-                },
-
-                // 🌟 تجميع إشعارات نفس المرسل في مجموعة واحدة دون حذف الرسائل القديمة
-                android_group: `group_${sender}`,
-                android_group_message: { 
-                    ar: `$[notif_count] رسائل جديدة من ${sender}`,
-                    en: `$[notif_count] new messages from ${sender}`
-                }
-            })
+            body: JSON.stringify(notificationPayload)
         });
 
         const data = await response.json();
