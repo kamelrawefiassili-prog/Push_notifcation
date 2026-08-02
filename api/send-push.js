@@ -62,12 +62,13 @@ export default async function handler(req, res) {
 
         // 🎯 تحديد الجمهور المستهدف بحسب البيانات المستقبلة
         if (target_user && target_user.trim() !== '') {
-            // استهداف مستخدم محدد برقم/اسم المستخدم الخاص به
-            notificationPayload.filters = [
-                { field: 'tag', key: 'username', relation: '=', value: target_user.trim() }
-            ];
+            // استهداف مستخدم محدد مباشرة عبر الـ External ID (أكثر موثوقية من الـ Tags)
+            notificationPayload.include_aliases = {
+                external_id: [target_user.trim()]
+            };
+            notificationPayload.target_channel = 'push';
         } else if (target_role && target_role.trim() !== '') {
-            // استهداف رتبة معينة (مثل admin أو member)
+            // استهداف رتبة معينة (مثل admin أو member) - يبقى معتمداً على الـ Tag
             notificationPayload.filters = [
                 { field: 'tag', key: 'role', relation: '=', value: target_role.trim() }
             ];
